@@ -1,0 +1,303 @@
+# =============================================================================
+# GitHub Actions CI/CD Pipeline
+# Toshiro-Shibakita - Cloud-Native Evolution
+# =============================================================================
+# Original project: https://github.com/denilsonbonatti/toshiro-shibakita
+#
+# Pipeline stages:
+# 1. Build & Test: Build Docker images, run tests
+# 2. Security Scan: Trivy vulnerability scanning
+# 3. Deploy: Blue/Green deployment to ECS
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  release:
+    types: [published]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: toshiro-shibakita-prod-cluster
+  API_IMAGE_NAME: toshiro-api
+  FRONTEND_IMAGE_NAME: toshiro-frontend
+
+permissions:
+  id-token: write
+  contents: read
+  security-events: write
+
+jobs:
+  # ===========================================================================
+  # Stage 1: Build & Test
+  # ===========================================================================
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, frontend]
+    
+    outputs:
+      api-image: ${{ steps.build-image.outputs.api-image }}
+      frontend-image: ${{ steps.build-image.outputs.frontend-image }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Set image tag
+        id: set-tag
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=sha-${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Build Docker image
+        id: build-image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ matrix.service == 'api' && env.API_IMAGE_NAME || env.FRONTEND_IMAGE_NAME }}:${{ steps.set-tag.outputs.tag }}
+            ${{ env.ECR_REGISTRY }}/${{ matrix.service == 'api' && env.API_IMAGE_NAME || env.FRONTEND_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run unit tests (API only)
+        if: matrix.service == 'api'
+        run: |
+          cd api
+          npm ci
+          npm run test
+      
+      - name: Export image for scanning
+        run: |
+          docker save ${{ env.ECR_REGISTRY }}/${{ matrix.service == 'api' && env.API_IMAGE_NAME || env.FRONTEND_IMAGE_NAME }}:${{ steps.set-tag.outputs.tag }} -o /tmp/${{ matrix.service }}-image.tar
+      
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-image
+          path: /tmp/${{ matrix.service }}-image.tar
+          retention-days: 1
+
+  # ===========================================================================
+  # Stage 2: Security Scan (Trivy)
+  # ===========================================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        service: [api, frontend]
+    
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.service }}-image
+          path: /tmp
+      
+      - name: Load image
+        run: |
+          docker load -i /tmp/${{ matrix.service }}-image.tar
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ matrix.service == 'api' && env.API_IMAGE_NAME || env.FRONTEND_IMAGE_NAME }}:sha-${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+
+  # ===========================================================================
+  # Stage 3: Push to ECR
+  # ===========================================================================
+  push:
+    name: Push to ECR
+    runs-on: ubuntu-latest
+    needs: [build, security-scan]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+    strategy:
+      matrix:
+        service: [api, frontend]
+    
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.service }}-image
+          path: /tmp
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Load and push image
+        run: |
+          docker load -i /tmp/${{ matrix.service }}-image.tar
+          docker push ${{ env.ECR_REGISTRY }}/${{ matrix.service == 'api' && env.API_IMAGE_NAME || env.FRONTEND_IMAGE_NAME }}:sha-${{ github.sha }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ matrix.service == 'api' && env.API_IMAGE_NAME || env.FRONTEND_IMAGE_NAME }}:latest
+
+  # ===========================================================================
+  # Stage 4: Deploy to ECS (Blue/Green)
+  # ===========================================================================
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: push
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+    environment:
+      name: production
+      url: https://toshiro.example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Set image tag
+        id: set-tag
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=sha-${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition toshiro-shibakita-prod-api \
+            --query taskDefinition > task-definition.json
+      
+      - name: Update task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: api
+          image: ${{ env.ECR_REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ steps.set-tag.outputs.tag }}
+      
+      - name: Deploy to ECS (Blue/Green)
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: toshiro-shibakita-prod-api
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          codedeploy-appspec: |
+            version: 0.0
+            Resources:
+              - TargetService:
+                  Type: AWS::ECS::Service
+                  Properties:
+                    TaskDefinition: <TASK_DEFINITION>
+                    LoadBalancerInfo:
+                      ContainerName: api
+                      ContainerPort: 3000
+      
+      - name: Verify deployment
+        run: |
+          echo "Waiting for service stability..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services toshiro-shibakita-prod-api
+          echo "✅ Deployment successful!"
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed! Check CloudWatch logs for details."
+          # Add Slack/Teams notification here
+
+  # ===========================================================================
+  # Stage 5: Infrastructure (Terraform)
+  # ===========================================================================
+  terraform:
+    name: Terraform Plan/Apply
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: infrastructure
+    
+    defaults:
+      run:
+        working-directory: ./infra/environments/prod
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Validate
+        run: terraform validate
+      
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan -no-color
+        continue-on-error: true
+      
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && steps.plan.outcome == 'success'
+        run: terraform apply -auto-approve tfplan

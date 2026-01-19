@@ -1,0 +1,14 @@
+# =============================================================================
+# Production Environment - Variables
+# Toshiro-Shibakita Infrastructure
+# =============================================================================
+
+# These are the default values for production.
+# Override in terraform.tfvars or via environment variables.
+
+api_image      = "REPLACE_WITH_ECR_URI/toshiro-api:latest"
+frontend_image = "REPLACE_WITH_ECR_URI/toshiro-frontend:latest"
+
+# Uncomment and set for HTTPS
+# certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID"
+# domain_name     = "toshiro.example.com"

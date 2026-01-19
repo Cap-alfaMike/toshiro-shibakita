@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Toshiro-Shibakita - Enterprise Cloud-Native Application Dashboard">
+  <title>Toshiro-Shibakita | Cloud-Native Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary: #6366f1;
+      --color-primary-dark: #4f46e5;
+      --color-secondary: #10b981;
+      --color-accent: #f59e0b;
+      --color-danger: #ef4444;
+      --color-bg-dark: #0f172a;
+      --color-bg-card: #1e293b;
+      --color-bg-hover: #334155;
+      --color-text-primary: #f1f5f9;
+      --color-text-secondary: #94a3b8;
+      --color-border: #334155;
+      --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--color-bg-dark);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Header */
+    .header {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--color-border);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--gradient-primary);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .logo-text {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .logo-text span {
+      color: var(--color-primary);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+    }
+
+    .nav-link {
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-link:hover {
+      color: var(--color-text-primary);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--color-secondary);
+      border-radius: 9999px;
+      font-size: 0.875rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--color-secondary);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Main Content */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 4rem 0;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--color-text-secondary);
+      max-width: 600px;
+      margin: 0 auto 2rem;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 0.875rem 2rem;
+      border-radius: 10px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+      font-size: 1rem;
+    }
+
+    .btn-primary {
+      background: var(--gradient-primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-bg-hover);
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .stat-card {
+      background: var(--color-bg-card);
+      border-radius: 16px;
+      padding: 1.5rem;
+      border: 1px solid var(--color-border);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .stat-icon.blue { background: rgba(99, 102, 241, 0.1); }
+    .stat-icon.green { background: rgba(16, 185, 129, 0.1); }
+    .stat-icon.amber { background: rgba(245, 158, 11, 0.1); }
+    .stat-icon.red { background: rgba(239, 68, 68, 0.1); }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+    }
+
+    .stat-label {
+      color: var(--color-text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .stat-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .stat-trend.up {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--color-secondary);
+    }
+
+    .stat-trend.down {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--color-danger);
+    }
+
+    /* Data Table */
+    .section {
+      margin-bottom: 3rem;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .table-container {
+      background: var(--color-bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--color-border);
+      overflow: hidden;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 1rem 1.5rem;
+      text-align: left;
+    }
+
+    .data-table th {
+      background: rgba(0, 0, 0, 0.2);
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .data-table tr {
+      border-bottom: 1px solid var(--color-border);
+      transition: background 0.2s;
+    }
+
+    .data-table tr:last-child {
+      border-bottom: none;
+    }
+
+    .data-table tr:hover {
+      background: var(--color-bg-hover);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--color-secondary);
+    }
+
+    .badge-warning {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--color-accent);
+    }
+
+    /* Form */
+    .form-card {
+      background: var(--color-bg-card);
+      border-radius: 16px;
+      padding: 2rem;
+      border: 1px solid var(--color-border);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-label {
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .form-input {
+      padding: 0.75rem 1rem;
+      background: var(--color-bg-dark);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      color: var(--color-text-primary);
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    .form-actions {
+      margin-top: 2rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      border-top: 1px solid var(--color-border);
+      color: var(--color-text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .footer a {
+      color: var(--color-primary);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <div class="logo-icon">🏯</div>
+        <div class="logo-text">Toshiro<span>Shibakita</span></div>
+      </div>
+      <nav class="nav-links">
+        <a href="#dashboard" class="nav-link">Dashboard</a>
+        <a href="#data" class="nav-link">Dados</a>
+        <a href="#metrics" class="nav-link">Métricas</a>
+        <a href="https://github.com/denilsonbonatti/toshiro-shibakita" class="nav-link" target="_blank">GitHub</a>
+      </nav>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>Sistema Operacional</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="hero" id="dashboard">
+      <h1>Cloud-Native Dashboard</h1>
+      <p>Evolução enterprise-grade do projeto Toshiro-Shibakita, implementando arquitetura AWS Well-Architected Framework.</p>
+      <div class="hero-buttons">
+        <a href="/api/v1/dados" class="btn btn-primary">Explorar API</a>
+        <a href="https://github.com/denilsonbonatti/toshiro-shibakita" class="btn btn-secondary" target="_blank">Ver Repositório</a>
+      </div>
+    </section>
+
+    <section class="stats-grid" id="metrics">
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon blue">📊</div>
+          <span class="stat-trend up">↑ 12%</span>
+        </div>
+        <div class="stat-value" id="total-records">0</div>
+        <div class="stat-label">Total de Registros</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon green">🏙️</div>
+          <span class="stat-trend up">↑ 5%</span>
+        </div>
+        <div class="stat-value" id="unique-cities">0</div>
+        <div class="stat-label">Cidades Únicas</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon amber">⏱️</div>
+        </div>
+        <div class="stat-value" id="last-24h">0</div>
+        <div class="stat-label">Últimas 24 horas</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <div class="stat-icon red">🖥️</div>
+        </div>
+        <div class="stat-value" id="unique-hosts">0</div>
+        <div class="stat-label">Hosts Ativos</div>
+      </div>
+    </section>
+
+    <section class="section" id="data">
+      <div class="section-header">
+        <h2 class="section-title">Dados Recentes</h2>
+        <button class="btn btn-primary" onclick="openForm()">+ Novo Registro</button>
+      </div>
+      
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nome</th>
+              <th>Cidade</th>
+              <th>Host</th>
+              <th>Criado em</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="data-table-body">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--color-text-secondary);">
+                Carregando dados...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Novo Registro</h2>
+      <div class="form-card">
+        <form id="data-form" onsubmit="submitForm(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="nome">Nome</label>
+              <input type="text" id="nome" class="form-input" required placeholder="Digite o nome">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sobrenome">Sobrenome</label>
+              <input type="text" id="sobrenome" class="form-input" required placeholder="Digite o sobrenome">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="endereco">Endereço</label>
+              <input type="text" id="endereco" class="form-input" required placeholder="Digite o endereço">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="cidade">Cidade</label>
+              <input type="text" id="cidade" class="form-input" required placeholder="Digite a cidade">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="clearForm()">Limpar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>
+      🏯 Toshiro-Shibakita Cloud-Native Evolution |
+      Original: <a href="https://github.com/denilsonbonatti/toshiro-shibakita" target="_blank">denilsonbonatti/toshiro-shibakita</a>
+    </p>
+  </footer>
+
+  <script>
+    const API_BASE = '/api/v1';
+
+    // Fetch stats
+    async function fetchStats() {
+      try {
+        const response = await fetch(`${API_BASE}/dados/stats/summary`);
+        const result = await response.json();
+        
+        if (result.success) {
+          document.getElementById('total-records').textContent = result.data.total.toLocaleString();
+          document.getElementById('unique-cities').textContent = result.data.byCity.length;
+          document.getElementById('last-24h').textContent = result.data.last24Hours.toLocaleString();
+          document.getElementById('unique-hosts').textContent = result.data.uniqueHosts || '-';
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    }
+
+    // Fetch data
+    async function fetchData() {
+      try {
+        const response = await fetch(`${API_BASE}/dados?limit=10`);
+        const result = await response.json();
+        
+        if (result.success && result.data.length > 0) {
+          const tbody = document.getElementById('data-table-body');
+          tbody.innerHTML = result.data.map(item => `
+            <tr>
+              <td><code>${item.id.substring(0, 8)}...</code></td>
+              <td>${item.nome} ${item.sobrenome}</td>
+              <td>${item.cidade}</td>
+              <td><span class="badge badge-success">${item.host}</span></td>
+              <td>${new Date(item.created_at).toLocaleDateString('pt-BR')}</td>
+              <td><span class="badge badge-success">Ativo</span></td>
+            </tr>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        document.getElementById('data-table-body').innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--color-text-secondary);">
+              API não disponível. Verifique a conexão.
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // Submit form
+    async function submitForm(event) {
+      event.preventDefault();
+      
+      const data = {
+        nome: document.getElementById('nome').value,
+        sobrenome: document.getElementById('sobrenome').value,
+        endereco: document.getElementById('endereco').value,
+        cidade: document.getElementById('cidade').value
+      };
+
+      try {
+        const response = await fetch(`${API_BASE}/dados`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          clearForm();
+          fetchData();
+          fetchStats();
+          alert('Registro criado com sucesso!');
+        } else {
+          alert('Erro ao criar registro: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error submitting form:', error);
+        alert('Erro ao conectar com a API');
+      }
+    }
+
+    function clearForm() {
+      document.getElementById('data-form').reset();
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchStats();
+      fetchData();
+      
+      // Refresh every 30 seconds
+      setInterval(() => {
+        fetchStats();
+        fetchData();
+      }, 30000);
+    });
+  </script>
+</body>
+</html>

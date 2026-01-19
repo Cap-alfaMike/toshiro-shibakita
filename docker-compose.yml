@@ -1,0 +1,170 @@
+# =============================================================================
+# Docker Compose - Local Development Environment
+# Toshiro-Shibakita - Cloud-Native Evolution
+# =============================================================================
+# Original project: https://github.com/denilsonbonatti/toshiro-shibakita
+#
+# This file allows running the entire stack locally for development.
+# Usage: docker-compose up -d
+# =============================================================================
+
+version: '3.9'
+
+services:
+  # ==========================================================================
+  # API Service
+  # ==========================================================================
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: production
+    container_name: toshiro-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - LOG_LEVEL=debug
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=toshiro
+      - DB_USER=toshiro
+      - DB_PASSWORD=dev_password_123
+      - DB_SSL=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_TLS=false
+      - ENABLE_XRAY=false
+      - ENABLE_CACHE=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - toshiro-network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Frontend Service
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: toshiro-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - toshiro-network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # PostgreSQL Database (Replaces original MySQL)
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: toshiro-postgres
+    environment:
+      POSTGRES_USER: toshiro
+      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_DB: toshiro
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U toshiro -d toshiro" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - toshiro-network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Redis Cache (ElastiCache local equivalent)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: toshiro-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - toshiro-network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Adminer - Database Management UI
+  # ==========================================================================
+  adminer:
+    image: adminer:latest
+    container_name: toshiro-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    networks:
+      - toshiro-network
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Redis Commander - Redis Management UI
+  # ==========================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: toshiro-redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - toshiro-network
+    restart: unless-stopped
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  toshiro-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
